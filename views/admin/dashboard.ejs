@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - CDMS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-shield-alt"></i>
+            <span>CDMS Admin</span>
+        </div>
+        <div class="nav-links">
+            <a href="/admin/dashboard" class="active">Dashboard</a>
+            <a href="/admin/users">Users</a>
+            <a href="/admin/jurisdictions">Manage Jurisdictions</a>
+            <a href="/admin/reports">Reports</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <h1>Welcome, <%= admin.userName %></h1>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fas fa-users"></i>
+                <h3>Total Users</h3>
+                <p><%= stats.totalUsers %></p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-folder"></i>
+                <h3>Total Cases</h3>
+                <p><%= stats.totalCases %></p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-clock"></i>
+                <h3>Active Cases</h3>
+                <p><%= stats.activeCases %></p>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-row">
+                <div class="chart-card">
+                    <h3>Cases by Jurisdiction</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="jurisdictionChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>User Role Distribution</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="rolesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-card full-width">
+                <h3>Cases Timeline (Last 6 Months)</h3>
+                <div class="chart-wrapper">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Safely parse chart data with fallbacks
+        const chartData = {
+            jurisdictions: <%- JSON.stringify(chartData.jurisdictions || { labels: [], data: [] }) %>,
+            roles: <%- JSON.stringify(chartData.roles || { labels: [], data: [] }) %>,
+            timeline: <%- JSON.stringify(chartData.timeline || { labels: [], data: [] }) %>
+        };
+
+        // Color generator function
+        function generateColors(count) {
+            const colors = [
+                '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b',
+                '#858796', '#5a5c69', '#2e59d9', '#17a673', '#2c9faf'
+            ];
+            return Array(count).fill().map((_, i) => colors[i % colors.length]);
+        }
+
+        // Initialize Jurisdiction Chart
+        new Chart(document.getElementById('jurisdictionChart'), {
+            type: 'bar',
+            data: {
+                labels: chartData.jurisdictions.labels,
+                datasets: [{
+                    label: 'Cases',
+                    data: chartData.jurisdictions.data,
+                    backgroundColor: generateColors(chartData.jurisdictions.labels.length),
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+
+        // Initialize Roles Chart
+        new Chart(document.getElementById('rolesChart'), {
+            type: 'pie',
+            data: {
+                labels: chartData.roles.labels,
+                datasets: [{
+                    data: chartData.roles.data,
+                    backgroundColor: generateColors(chartData.roles.labels.length)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20
+                        }
+                    }
+                }
+            }
+        });
+
+        // Initialize Timeline Chart
+        new Chart(document.getElementById('timelineChart'), {
+            type: 'line',
+            data: {
+                labels: chartData.timeline.labels,
+                datasets: [{
+                    label: 'New Cases',
+                    data: chartData.timeline.data,
+                    borderColor: '#4e73df',
+                    backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

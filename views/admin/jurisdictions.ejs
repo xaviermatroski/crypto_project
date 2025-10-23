@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Jurisdictions - CDMS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-shield-alt"></i>
+            <span>CDMS Admin</span>
+        </div>
+        <div class="nav-links">
+            <a href="/admin/dashboard">Dashboard</a>
+            <a href="/admin/users">Users</a>
+            <a href="/admin/jurisdictions" class="active">Manage Jurisdictions</a>
+            <a href="/admin/reports">Reports</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>Manage Jurisdictions</h1>
+        
+        <div class="add-jurisdiction-form">
+            <h2>Add New Jurisdiction</h2>
+            <% if (error) { %>
+                <div class="error-message"><%= error %></div>
+            <% } %>
+            <form action="/admin/jurisdictions/add" method="POST">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="state">State</label>
+                        <input type="text" name="state" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="district">District</label>
+                        <input type="text" name="district" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="policeStation">Police Station</label>
+                    <input type="text" name="policeStation" required>
+                </div>
+                <button type="submit" class="submit-btn">Add Jurisdiction</button>
+            </form>
+        </div>
+
+        <div class="jurisdictions-list">
+            <h2>Existing Jurisdictions</h2>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>State</th>
+                            <th>District</th>
+                            <th>Police Station</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% jurisdictions.forEach(jurisdiction => { %>
+                            <tr>
+                                <td><%= jurisdiction.state %></td>
+                                <td><%= jurisdiction.district %></td>
+                                <td><%= jurisdiction.policeStation %></td>
+                                <td>
+                                    <form action="/admin/jurisdictions/delete/<%= jurisdiction._id %>" method="POST" style="display: inline;">
+                                        <button type="submit" class="delete-btn" onclick="return confirm('Are you sure you want to delete this jurisdiction?')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case Details - CDMS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-shield-alt"></i>
+            <span>CDMS Investigator</span>
+        </div>
+        <div class="nav-links">
+            <a href="/investigator/dashboard">Dashboard</a>
+            <a href="/investigator/cases" class="active">My Cases</a>
+            <a href="/investigator/search">Search Records</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="case-details-container">
+        <div class="case-details-header">
+            <div class="case-header">
+                <h1><%= case_.title %></h1>
+                <span class="case-number">#<%= case_.caseNumber %></span>
+            </div>
+            <div class="case-meta">
+                <span class="case-priority <%= case_.priority %>"><%= case_.priority %></span>
+                <div class="status-update">
+                    <form action="/investigator/cases/<%= case_._id %>/status" method="POST" class="status-form">
+                        <select name="status" class="status-select" onchange="this.form.submit()">
+                            <option value="open" <%= case_.status === 'open' ? 'selected' : '' %>>Open</option>
+                            <option value="under_investigation" <%= case_.status === 'under_investigation' ? 'selected' : '' %>>Under Investigation</option>
+                            <option value="pending_review" <%= case_.status === 'pending_review' ? 'selected' : '' %>>Pending Review</option>
+                            <option value="closed" <%= case_.status === 'closed' ? 'selected' : '' %>>Closed</option>
+                        </select>
+                    </form>
+                </div>
+                <span class="case-date">Created on: <%= new Date(case_.createdAt).toLocaleDateString() %></span>
+            </div>
+        </div>
+
+        <div class="case-details-content">
+            <div class="case-info">
+                <h2>Case Description</h2>
+                <p><%= case_.description %></p>
+
+                <div class="case-updates">
+                    <h3>Add Update</h3>
+                    <form action="/investigator/cases/<%= case_._id %>/update" method="POST" class="update-form">
+                        <textarea name="updateText" rows="3" placeholder="Add case update..." required></textarea>
+                        <button type="submit" class="submit-update">Add Update</button>
+                    </form>
+
+                    <div class="updates-list">
+                        <% if (case_.updates && case_.updates.length > 0) { %>
+                            <% case_.updates.forEach(update => { %>
+                                <div class="update-item">
+                                    <p><%= update.text %></p>
+                                    <small><%= new Date(update.timestamp).toLocaleString() %></small>
+                                </div>
+                            <% }); %>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+
+            <div class="case-documents">
+                <h2>Case Documents</h2>
+                <form action="/investigator/cases/<%= case_._id %>/documents" method="POST" enctype="multipart/form-data" class="document-upload">
+                    <div class="upload-area">
+                        <input type="file" name="documents" multiple id="documents">
+                        <small>Upload new documents (Images, PDF, DOC, DOCX, TXT, XLS, XLSX)</small>
+                    </div>
+                    <button type="submit" class="upload-btn">Upload Documents</button>
+                </form>
+
+                <div class="documents-list">
+                    <% if (case_.documents && case_.documents.length > 0) { %>
+                        <% case_.documents.forEach(doc => { %>
+                            <div class="document-item">
+                                <i class="fas fa-file"></i>
+                                <span><%= doc.name %></span>
+                                <div class="document-actions">
+                                    <a href="/investigator/cases/<%= case_._id %>/documents/<%= doc._id %>" 
+                                       class="download-btn" title="Download">
+                                        <i class="fas fa-download"></i>
+                                    </a>
+                                    <form action="/investigator/cases/<%= case_._id %>/documents/<%= doc._id %>/delete" 
+                                          method="POST" class="delete-doc-form">
+                                        <button type="submit" class="delete-btn" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        <% }); %>
+                    <% } else { %>
+                        <p>No documents attached to this case.</p>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

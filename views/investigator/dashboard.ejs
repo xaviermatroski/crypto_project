@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investigator Dashboard - CDMS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-shield-alt"></i>
+            <span>CDMS Investigator</span>
+        </div>
+        <div class="nav-links">
+            <a href="/investigator/dashboard" class="active">Dashboard</a>
+            <a href="/investigator/cases">Cases</a>
+            <a href="/investigator/profile">Profile</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <h1>Welcome, <%= user.userName %></h1>
+        <p class="jurisdiction-info">
+            <i class="fas fa-map-marker-alt"></i>
+            <%= user.jurisdiction.district %>, <%= user.jurisdiction.state %> - <%= user.jurisdiction.policeStation %>
+        </p>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fas fa-folder-open"></i>
+                <h3>Total Cases</h3>
+                <p><%= stats.totalCases %></p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-clock"></i>
+                <h3>Active Cases</h3>
+                <p><%= stats.activeCases %></p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-check-circle"></i>
+                <h3>Solved Cases</h3>
+                <p><%= stats.solvedCases %></p>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-row">
+                <div class="chart-card">
+                    <h3>Cases by Priority</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="priorityChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Cases by Status</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-card full-width">
+                <h3>Cases Timeline (Last 6 Months)</h3>
+                <div class="chart-wrapper">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Define chart colors and configurations
+        const chartColors = {
+            priority: {
+                'high': '#dc3545',
+                'medium': '#ffc107',
+                'low': '#28a745',
+                'undefined': '#6c757d'
+            },
+            status: {
+                'open': '#17a2b8',
+                'in-progress': '#ffc107',
+                'closed': '#28a745',
+                'pending': '#6c757d',
+                'undefined': '#6c757d'
+            },
+            timeline: '#3949ab'
+        };
+
+        // Helper function to get colors
+        function getPriorityColors(labels) {
+            return labels.map(label => 
+                chartColors.priority[label ? label.toLowerCase() : 'undefined']
+            );
+        }
+
+        function getStatusColors(labels) {
+            return labels.map(label => 
+                chartColors.status[label ? label.toLowerCase() : 'undefined']
+            );
+        }
+
+        // Priority Chart
+        new Chart(document.getElementById('priorityChart'), {
+            type: 'pie',
+            data: {
+                labels: <%- JSON.stringify(chartData.priority.labels) %>,
+                datasets: [{
+                    data: <%- JSON.stringify(chartData.priority.data) %>,
+                    backgroundColor: getPriorityColors(<%- JSON.stringify(chartData.priority.labels) %>)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20
+                        }
+                    }
+                }
+            }
+        });
+
+        // Status Chart
+        new Chart(document.getElementById('statusChart'), {
+            type: 'doughnut',
+            data: {
+                labels: <%- JSON.stringify(chartData.status.labels) %>,
+                datasets: [{
+                    data: <%- JSON.stringify(chartData.status.data) %>,
+                    backgroundColor: getStatusColors(<%- JSON.stringify(chartData.status.labels) %>)
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20
+                        }
+                    }
+                }
+            }
+        });
+
+        // Timeline Chart
+        new Chart(document.getElementById('timelineChart'), {
+            type: 'line',
+            data: {
+                labels: <%- JSON.stringify(chartData.timeline.labels) %>,
+                datasets: [{
+                    label: 'New Cases',
+                    data: <%- JSON.stringify(chartData.timeline.data) %>,
+                    borderColor: chartColors.timeline,
+                    backgroundColor: `${chartColors.timeline}20`,
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

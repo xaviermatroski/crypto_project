@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forensics Dashboard - CDMS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-shield-alt"></i>
+            <span>CDMS Forensics</span>
+        </div>
+        <div class="nav-links">
+            <a href="/forensics/dashboard" class="active">Dashboard</a>
+            <a href="/forensics/cases">Case Analysis</a>
+            <a href="/forensics/reports">Reports</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <h1>Welcome, <%= user.userName %></h1>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fas fa-microscope"></i>
+                <h3>Active Analysis</h3>
+                <p>0</p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-file-alt"></i>
+                <h3>Reports Generated</h3>
+                <p>0</p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-tasks"></i>
+                <h3>Pending Tasks</h3>
+                <p>0</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - CDMS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-shield-alt"></i>
+            <span>CDMS Admin</span>
+        </div>
+        <div class="nav-links">
+            <a href="/admin/dashboard">Dashboard</a>
+            <a href="/admin/users" class="active">Users</a>
+            <a href="/admin/cases">Cases</a>
+            <a href="/admin/reports">Reports</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="users-container">
+        <div class="approved-users">
+            <h2>Approved Users</h2>
+            <% if (approvedUsers.length === 0) { %>
+                <p class="no-data">No approved users</p>
+            <% } else { %>
+                <div class="users-grid">
+                    <% approvedUsers.forEach(user => { %>
+                        <div class="user-card <%= user.isBlocked ? 'inactive' : '' %>">
+                            <div class="user-info">
+                                <h3><%= user.userName %></h3>
+                                <p><i class="fas fa-envelope"></i> <%= user.email %></p>
+                                <p><i class="fas fa-phone"></i> <%= user.phone %></p>
+                                <p><i class="fas fa-user-tag"></i> <%= user.role %></p>
+                                <% if (user.jurisdiction) { %>
+                                    <p><i class="fas fa-map-marker-alt"></i> 
+                                        <%= user.jurisdiction.district %>, <%= user.jurisdiction.state %>
+                                    </p>
+                                    <p><i class="fas fa-id-badge"></i> <%= user.jurisdiction.badgeNumber %></p>
+                                <% } %>
+                            </div>
+
+                            <div class="user-actions">
+                                <!-- Update Jurisdiction -->
+                                <button class="edit-btn" onclick="openJurisdictionModal('<%= user._id %>')">
+                                    <i class="fas fa-edit"></i> Update Jurisdiction
+                                </button>
+
+                                <!-- Toggle Status -->
+                                <button type="button" 
+                                        onclick="toggleUserStatus('<%= user._id %>', '<%= user.isBlocked %>', '<%= user.userName %>')" 
+                                        class="<%= user.isBlocked ? 'activate-btn' : 'deactivate-btn' %>">
+                                    <i class="fas <%= user.isBlocked ? 'fa-unlock' : 'fa-lock' %>"></i>
+                                    <%= user.isBlocked ? 'Activate' : 'Deactivate' %>
+                                </button>
+
+                                <!-- Delete User -->
+                                <button type="button" 
+                                        onclick="confirmDelete('<%= user._id %>', '<%= user.userName %>')"
+                                        class="delete-btn">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </div>
+                    <% }); %>
+                </div>
+            <% } %>
+        </div>
+
+        <div class="pending-users">
+            <h2>Pending Approvals</h2>
+            <% if (pendingUsers.length === 0) { %>
+                <p class="no-data">No pending approvals</p>
+            <% } else { %>
+                <div class="users-grid">
+                    <% pendingUsers.forEach(user => { %>
+                        <div class="user-card">
+                            <div class="user-info">
+                                <h3><%= user.userName %></h3>
+                                <p><i class="fas fa-envelope"></i> <%= user.email %></p>
+                                <p><i class="fas fa-phone"></i> <%= user.phone %></p>
+                                <p><i class="fas fa-user-tag"></i> <%= user.role %></p>
+                            </div>
+                            <form action="/admin/users/approve/<%= user._id %>" method="POST" class="jurisdiction-form">
+                                <div class="form-group">
+                                    <label for="jurisdiction">Select Jurisdiction</label>
+                                    <select name="jurisdiction" required class="jurisdiction-select" onchange="updatePoliceStations(this)">
+                                        <option value="">Select Jurisdiction</option>
+                                        <% 
+                                        const groupedJurisdictions = {};
+                                        jurisdictions.forEach(j => {
+                                            if (!groupedJurisdictions[j.state]) {
+                                                groupedJurisdictions[j.state] = {};
+                                            }
+                                            if (!groupedJurisdictions[j.state][j.district]) {
+                                                groupedJurisdictions[j.state][j.district] = [];
+                                            }
+                                            groupedJurisdictions[j.state][j.district].push(j.policeStation);
+                                        });
+                                        %>
+                                        <% Object.keys(groupedJurisdictions).sort().forEach(state => { %>
+                                            <optgroup label="<%= state %>">
+                                                <% Object.keys(groupedJurisdictions[state]).sort().forEach(district => { %>
+                                                    <% groupedJurisdictions[state][district].sort().forEach(station => { %>
+                                                        <option value="<%= JSON.stringify({state, district, policeStation: station}) %>">
+                                                            <%= state %> - <%= district %> - <%= station %>
+                                                        </option>
+                                                    <% }); %>
+                                                <% }); %>
+                                            </optgroup>
+                                        <% }); %>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="badgeNumber">Badge Number</label>
+                                    <input type="text" name="jurisdiction[badgeNumber]" required pattern="[A-Za-z0-9]+" title="Alphanumeric characters only">
+                                </div>
+                                <div class="action-buttons">
+                                    <button type="submit" class="approve-btn">Approve User</button>
+                                    <button type="submit" formaction="/admin/users/reject/<%= user._id %>" class="reject-btn">Reject</button>
+                                </div>
+                            </form>
+                        </div>
+                    <% }); %>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <!-- Jurisdiction Update Modal -->
+    <div id="jurisdictionModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Update Jurisdiction</h2>
+            <form id="jurisdictionForm" action="" method="POST">
+                <div class="form-group">
+                    <label for="jurisdiction">Select Jurisdiction</label>
+                    <select name="jurisdiction" required>
+                        <option value="">Select Jurisdiction</option>
+                        <% jurisdictions.forEach(j => { %>
+                            <option value='<%= JSON.stringify({
+                                district: j.district,
+                                state: j.state,
+                                policeStation: j.policeStation
+                            }) %>'>
+                                <%= j.district %>, <%= j.state %> - <%= j.policeStation %>
+                            </option>
+                        <% }); %>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="badgeNumber">Badge Number</label>
+                    <input type="text" name="badgeNumber" required pattern="[A-Za-z0-9]+">
+                </div>
+                <button type="submit" class="submit-btn">Update Jurisdiction</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add these hidden forms -->
+    <form id="statusForm" method="POST" style="display: none;">
+        <input type="hidden" name="reason" id="blockReason">
+    </form>
+
+    <form id="deleteForm" method="POST" style="display: none;"></form>
+
+    <script>
+        // Modal functionality
+        function openJurisdictionModal(userId) {
+            const modal = document.getElementById('jurisdictionModal');
+            const form = document.getElementById('jurisdictionForm');
+            form.action = `/admin/users/${userId}/update-jurisdiction`;
+            modal.style.display = 'block';
+        }
+
+        function toggleUserStatus(userId, isBlocked, userName) {
+            const statusForm = document.getElementById('statusForm');
+            const currentStatus = isBlocked === 'true';
+            
+            if (!currentStatus) {
+                // Deactivating user
+                const reason = prompt(`Please enter a reason for deactivating ${userName}:`);
+                if (!reason) return; // Cancel if no reason provided
+                document.getElementById('blockReason').value = reason;
+            }
+            
+            statusForm.action = `/admin/users/${userId}/toggle-status`;
+            statusForm.submit();
+        }
+
+        function confirmDelete(userId, userName) {
+            if (confirm(`Are you sure you want to delete user ${userName}? This action cannot be undone.`)) {
+                const deleteForm = document.getElementById('deleteForm');
+                deleteForm.action = `/admin/users/${userId}/delete`;
+                deleteForm.submit();
+            }
+        }
+
+        // Close modal
+        document.querySelector('.close').onclick = function() {
+            document.getElementById('jurisdictionModal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

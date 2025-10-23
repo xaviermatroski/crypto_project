@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Case - CDMS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <!-- ...existing navigation... -->
+    </nav>
+
+    <div class="create-case-container">
+        <div class="create-case-box">
+            <h2>Create New Case</h2>
+            <% if (error) { %>
+                <div class="error-message"><%= error %></div>
+            <% } %>
+            <form action="/investigator/cases/new" method="POST" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="title">Case Title</label>
+                    <input type="text" id="title" name="title" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Case Description</label>
+                    <textarea id="description" name="description" rows="4" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="priority">Priority</label>
+                        <select id="priority" name="priority" required>
+                            <option value="high">High</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="documents">Case Documents</label>
+                    <input type="file" id="documents" name="documents" multiple>
+                    <small>Allowed files: Images (JPG, PNG, GIF), PDF, DOC, DOCX, TXT, XLS, XLSX (max 5 files, 10MB each)</small>
+                </div>
+                <button type="submit" class="submit-case-btn">Create Case</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
