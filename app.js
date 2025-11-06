@@ -5,9 +5,8 @@ const nodemailer = require("nodemailer");
 const session = require("express-session");
 const multer = require("multer");
 const path = require("path");
-const bcrypt = require("bcrypt"); // Add bcrypt for password hashing
-const sharp = require('sharp'); // Add sharp require at the top with other requires
-const archiver = require('archiver');
+const bcrypt = require("bcrypt");
+const sharp = require('sharp');
 const fs = require('fs');
 require("dotenv").config();
 
@@ -19,10 +18,8 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(express.json())
 
-// Database
 const mongoose = require('mongoose');
 
-// Database connection
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -36,25 +33,22 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
-// Handle MongoDB connection events
 mongoose.connection.on('connected', () => {
   console.log('MongoDB connection established');
 });
-
 mongoose.connection.on('error', (err) => {
   console.error('MongoDB connection error:', err);
 });
-
 mongoose.connection.on('disconnected', () => {
   console.log('MongoDB connection disconnected');
 });
 
-// Import models
+// Update model imports
 const User = require('./models/user');
 const Case = require('./models/case');
 const Jurisdiction = require('./models/jurisdiction');
+const Policy = require('./models/policy'); // Add Policy model import
 
-// Create admin user if not exists
 async function createAdmin() {
   try {
     const adminExists = await User.findOne({ email: 'admin@cdms.com' });
@@ -62,7 +56,7 @@ async function createAdmin() {
       const admin = new User({
         userName: 'admin',
         email: 'admin@cdms.com',
-        password: 'admin123', // Will be hashed automatically
+        password: 'admin123',
         phone: '9999999999',
         role: 'admin',
         address: {
@@ -81,22 +75,17 @@ async function createAdmin() {
 }
 createAdmin();
 
-// Session middleware
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false } // set to true in production with HTTPS
+  cookie: { secure: false }
 }));
 
-// Multer configurations
 const profileStorage = multer.memoryStorage();
-const documentStorage = multer.memoryStorage();
-
-// Profile picture upload config
 const uploadProfile = multer({
   storage: profileStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
@@ -106,31 +95,9 @@ const uploadProfile = multer({
   }
 });
 
-// Case documents upload config
-const uploadDocuments = multer({
-  storage: documentStorage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedMimes = [
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    ];
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Allowed types: Images, PDF, DOC, DOCX, TXT, XLS, XLSX'), false);
-    }
-  }
-});
+// Import auth middleware
+const { isAuthenticated, isAdmin, roleCheck } = require('./middlewares/auth');
 
-// Routes
 app.get("/", (req, res) => {
   res.render("home");
 });
@@ -139,31 +106,55 @@ app.get("/login", (req, res) => {
   res.render("login", { error: null });
 });
 
+// Update login route
 app.post("/login", async (req, res) => {
   try {
-    const user = await User.findOne({ email: req.body.email }).select('+password');
+    // Validate input
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.render("login", { error: "Email and password are required" });
+    }
+
+    // Find user and include password field
+    const user = await User.findOne({ email }).select('+password');
     if (!user) {
       return res.render("login", { error: "Invalid credentials" });
     }
 
-    const validPassword = await bcrypt.compare(req.body.password, user.password);
+    // Verify password
+    const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       return res.render("login", { error: "Invalid credentials" });
     }
 
     // Check if user is blocked
-    if (user.isUserBlocked()) {
-      return res.render("login", { error: user.getBlockedMessage() });
+    if (user.isBlocked) {
+      return res.render("login", { 
+        error: `Account is blocked. Reason: ${user.blockedReason || 'Contact administrator'}` 
+      });
     }
 
+    // Check approval status
     if (!user.isApproved && user.role !== 'admin') {
       return res.render("login", { error: "Your account is pending approval" });
     }
 
+    // Set session
     req.session.userId = user._id;
     req.session.userRole = user.role;
+    
+    // Set organization based on jurisdiction
+    if (user.jurisdiction && user.jurisdiction.district === 'DistrictPoliceA') {
+      req.session.orgMspId = 'Org1MSP';
+    } else if (user.jurisdiction && user.jurisdiction.district === 'DistrictPoliceB') {
+      req.session.orgMspId = 'Org2MSP';
+    } else if (user.role === 'forensics_officer') {
+      req.session.orgMspId = 'Org2MSP';
+    } else {
+      req.session.orgMspId = 'Org1MSP';
+    }
 
-    // Role-based redirection
+    // Role-based redirect
     switch (user.role) {
       case 'admin':
         res.redirect('/admin/dashboard');
@@ -182,11 +173,11 @@ app.post("/login", async (req, res) => {
     }
   } catch (error) {
     console.error('Login error:', error);
-    res.render("login", { error: "An error occurred" });
+    res.render("login", { error: "An error occurred during login" });
   }
 });
 
-app.get("/admin/dashboard", async (req, res) => {
+app.get("/admin/dashboard", isAdmin, async (req, res) => {
   if (req.session.userId && req.session.userRole === 'admin') {
     try {
       const admin = await User.findById(req.session.userId);
@@ -194,53 +185,17 @@ app.get("/admin/dashboard", async (req, res) => {
       const totalCases = await Case.countDocuments();
       const activeCases = await Case.countDocuments({ status: { $ne: 'closed' } });
 
-      // Simplified Cases by Jurisdiction aggregation
       const casesByJurisdiction = await Case.aggregate([
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'assignedTo',
-            foreignField: '_id',
-            as: 'assignedUser'
-          }
-        },
-        { $unwind: '$assignedUser' },
-        {
-          $match: {
-            'assignedUser.role': { $ne: 'admin' }
-          }
-        },
-        {
-          $group: {
-            _id: '$assignedUser.jurisdiction.district',
-            count: { $sum: 1 }
-          }
-        },
-        {
-          $project: {
-            _id: 0,
-            jurisdiction: { $ifNull: ['$_id', 'Unassigned'] },
-            count: 1
-          }
-        },
+        { $match: { 'jurisdiction.district': { $exists: true, $ne: null } } },
+        { $group: { _id: '$jurisdiction.district', count: { $sum: 1 } } },
+        { $project: { _id: 0, jurisdiction: { $ifNull: ['$_id', 'Unassigned'] }, count: 1 } },
         { $sort: { jurisdiction: 1 } }
       ]);
 
-      // User Roles Distribution - Exclude admin
       const userRoles = await User.aggregate([
-        {
-          $match: {
-            role: { $ne: 'admin' }
-          }
-        },
-        {
-          $group: {
-            _id: '$role',
-            count: { $sum: 1 }
-          }
-        },
-        {
-          $project: {
+        { $match: { role: { $ne: 'admin' } } },
+        { $group: { _id: '$role', count: { $sum: 1 } } },
+        { $project: {
             role: {
               $switch: {
                 branches: [
@@ -257,18 +212,12 @@ app.get("/admin/dashboard", async (req, res) => {
         { $sort: { role: 1 } }
       ]);
 
-      // Cases Timeline (last 6 months)
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
       
       const casesTimeline = await Case.aggregate([
-        {
-          $match: {
-            createdAt: { $gte: sixMonthsAgo }
-          }
-        },
-        {
-          $group: {
+        { $match: { createdAt: { $gte: sixMonthsAgo } } },
+        { $group: {
             _id: {
               month: { $month: '$createdAt' },
               year: { $year: '$createdAt' }
@@ -308,13 +257,11 @@ app.get("/admin/dashboard", async (req, res) => {
   }
 });
 
-// Add role-specific dashboard routes
-app.get("/investigator/dashboard", async (req, res) => {
+app.get("/investigator/dashboard", roleCheck(['investigator']), async (req, res) => {
   if (req.session.userId && req.session.userRole === 'investigator') {
     try {
       const user = await User.findById(req.session.userId);
       
-      // Get statistics
       const totalCases = await Case.countDocuments({ assignedTo: req.session.userId });
       const activeCases = await Case.countDocuments({ 
         assignedTo: req.session.userId,
@@ -325,45 +272,26 @@ app.get("/investigator/dashboard", async (req, res) => {
         status: 'closed'
       });
 
-      // Cases by Priority
       const casesByPriority = await Case.aggregate([
-        {
-          $match: { assignedTo: user._id }
-        },
-        {
-          $group: {
-            _id: '$priority',
-            count: { $sum: 1 }
-          }
-        }
+        { $match: { assignedTo: user._id } },
+        { $group: { _id: '$priority', count: { $sum: 1 } } }
       ]);
 
-      // Cases by Status
       const casesByStatus = await Case.aggregate([
-        {
-          $match: { assignedTo: user._id }
-        },
-        {
-          $group: {
-            _id: '$status',
-            count: { $sum: 1 }
-          }
-        }
+        { $match: { assignedTo: user._id } },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
       ]);
 
-      // Cases Timeline (last 6 months)
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
       
       const casesTimeline = await Case.aggregate([
-        {
-          $match: {
+        { $match: {
             assignedTo: user._id,
             createdAt: { $gte: sixMonthsAgo }
           }
         },
-        {
-          $group: {
+        { $group: {
             _id: {
               month: { $month: '$createdAt' },
               year: { $year: '$createdAt' }
@@ -407,7 +335,7 @@ app.get("/investigator/dashboard", async (req, res) => {
   }
 });
 
-app.get("/forensics/dashboard", async (req, res) => {
+app.get("/forensics/dashboard", roleCheck(['forensics_officer']), async (req, res) => {
   if (req.session.userId && req.session.userRole === 'forensics_officer') {
     const user = await User.findById(req.session.userId);
     res.render("forensics/dashboard", { user });
@@ -416,7 +344,6 @@ app.get("/forensics/dashboard", async (req, res) => {
   }
 });
 
-// Logout route
 app.get("/logout", (req, res) => {
   req.session.destroy((err) => {
     if (err) console.log(err);
@@ -424,7 +351,6 @@ app.get("/logout", (req, res) => {
   });
 });
 
-// Admin user management routes
 app.get("/admin/users", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'admin') {
     try {
@@ -444,7 +370,6 @@ app.get("/admin/users", async (req, res) => {
   }
 });
 
-// Add jurisdiction management routes
 app.get("/admin/jurisdictions", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'admin') {
     try {
@@ -467,9 +392,10 @@ app.post("/admin/jurisdictions/add", async (req, res) => {
       res.redirect('/admin/jurisdictions');
     } catch (error) {
       console.error(error);
+      const jurisdictions = await Jurisdiction.find({});
       res.render("admin/jurisdictions", { 
         error: "Error adding jurisdiction. It might already exist.",
-        jurisdictions: await Jurisdiction.find({})
+        jurisdictions: jurisdictions
       });
     }
   } else {
@@ -477,32 +403,57 @@ app.post("/admin/jurisdictions/add", async (req, res) => {
   }
 });
 
-// Update approval route
 app.post("/admin/users/approve/:id", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'admin') {
     try {
       const user = await User.findById(req.params.id);
-      const updateData = {
-        isApproved: true
-      };
-
-      // Only add jurisdiction for non-judiciary users
-      if (user.role !== 'judiciary') {
-        updateData.jurisdiction = req.body.jurisdiction;
+      if (!user) {
+        return res.status(404).send("User not found");
       }
 
-      await User.findByIdAndUpdate(req.params.id, updateData);
+      // Initialize update data
+      const updateData = {
+        isApproved: true,
+        approvedAt: new Date(),
+        approvedBy: req.session.userId
+      };
+
+      // Handle jurisdiction based on role
+      if (user.role !== 'judiciary') {
+        try {
+          if (!req.body.jurisdiction) {
+            return res.status(400).send("Jurisdiction is required for this role");
+          }
+          updateData.jurisdiction = typeof req.body.jurisdiction === 'string' ? 
+            JSON.parse(req.body.jurisdiction) : req.body.jurisdiction;
+        } catch (e) {
+          console.error('Jurisdiction parsing error:', e);
+          return res.status(400).send("Invalid jurisdiction format");
+        }
+      }
+
+      // Update user
+      const updatedUser = await User.findByIdAndUpdate(
+        req.params.id,
+        updateData,
+        { new: true, runValidators: true }
+      );
+
+      if (!updatedUser) {
+        return res.status(500).send("Error updating user");
+      }
+
+      // Send success response
       res.redirect('/admin/users');
     } catch (error) {
-      console.error(error);
-      res.status(500).send("Error approving user");
+      console.error('User approval error:', error);
+      res.status(500).send(`Error approving user: ${error.message}`);
     }
   } else {
     res.redirect('/login');
   }
 });
 
-// Add rejection route
 app.post("/admin/users/reject/:id", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'admin') {
     try {
@@ -517,7 +468,6 @@ app.post("/admin/users/reject/:id", async (req, res) => {
   }
 });
 
-// Update user jurisdiction
 app.post("/admin/users/:id/update-jurisdiction", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'admin') {
     try {
@@ -534,7 +484,6 @@ app.post("/admin/users/:id/update-jurisdiction", async (req, res) => {
   }
 });
 
-// Toggle user active status
 app.post("/admin/users/:id/toggle-status", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'admin') {
     try {
@@ -551,11 +500,7 @@ app.post("/admin/users/:id/toggle-status", async (req, res) => {
 
       await User.findByIdAndUpdate(req.params.id, updates);
 
-      // Force logout if user is being blocked
       if (!user.isBlocked) {
-        // Clear any existing sessions for the blocked user
-        // This depends on your session store implementation
-        // Here's a basic example:
         if (req.session.userId === user._id) {
           req.session.destroy();
         }
@@ -571,7 +516,6 @@ app.post("/admin/users/:id/toggle-status", async (req, res) => {
   }
 });
 
-// Delete user
 app.post("/admin/users/:id/delete", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'admin') {
     try {
@@ -586,307 +530,73 @@ app.post("/admin/users/:id/delete", async (req, res) => {
   }
 });
 
-// Registration routes
 app.get("/register", (req, res) => {
   res.render("register", { error: null });
 });
 
+// Update registration route
 app.post("/register", uploadProfile.single('profilePicture'), async (req, res) => {
   try {
-    // Process profile picture if uploaded
+    // Validate required fields
+    const { userName, email, password, role, phone } = req.body;
+    if (!userName || !email || !password || !role || !phone) {
+      return res.render("register", { error: "All fields are required" });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ 
+      $or: [{ email: email }, { userName: userName }] 
+    });
+    
+    if (existingUser) {
+      return res.render("register", { 
+        error: "User with this email or username already exists" 
+      });
+    }
+
+    // Create user object
+    const userData = {
+      userName,
+      email,
+      password, // Will be hashed by the model pre-save hook
+      phone,
+      role,
+      address: req.body.address,
+      isApproved: false
+    };
+
+    // Add profile picture if uploaded
     if (req.file) {
       const resizedImage = await sharp(req.file.buffer)
         .resize(200, 200, { fit: 'cover' })
         .toBuffer();
-      req.body.profilePicture = {
+      userData.profilePicture = {
         data: resizedImage,
         contentType: req.file.mimetype
       };
     }
 
-    // Create new user
-    const user = new User({
-      ...req.body,
-      isApproved: false
-    });
-
+    // Create and save user
+    const user = new User(userData);
     await user.save();
+    
     res.render("registration-success");
   } catch (error) {
-    let errorMessage = "Registration failed";
-    if (error.code === 11000) {
-      errorMessage = "Username or email already exists";
-    }
-    res.render("register", { error: errorMessage });
+    console.error('Registration error:', error);
+    res.render("register", { 
+      error: error.code === 11000 ? "Username or email already exists" : "Registration failed" 
+    });
   }
 });
 
-// Case management routes
-app.get("/investigator/cases", async (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    try {
-      const cases = await Case.find({ assignedTo: req.session.userId })
-                             .sort({ createdAt: -1 });
-      res.render("investigator/cases", { cases });
-    } catch (error) {
-      res.status(500).send("Error fetching cases");
-    }
-  } else {
-    res.redirect('/login');
-  }
-});
+const caseRoutes = require('./routes/case.routes');
+app.use('/', caseRoutes);
 
-app.get("/investigator/cases/new", (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    res.render("investigator/create-case", { error: null });
-  } else {
-    res.redirect('/login');
-  }
-});
-
-app.post("/investigator/cases/new", uploadDocuments.array('documents', 5), async (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    try {
-      const caseNumber = 'CASE-' + Date.now();
-      const documents = req.files ? req.files.map(file => ({
-        name: file.originalname,
-        data: file.buffer,
-        contentType: file.mimetype
-      })) : [];
-
-      const newCase = new Case({
-        caseNumber,
-        title: req.body.title,
-        description: req.body.description,
-        priority: req.body.priority,
-        assignedTo: req.session.userId,
-        documents
-      });
-
-      await newCase.save();
-      res.redirect('/investigator/cases');
-    } catch (error) {
-      console.error('Case creation error:', error);
-      res.render("investigator/create-case", { 
-        error: "Error creating case. " + (error.message || "Please try again.")
-      });
-    }
-  } else {
-    res.redirect('/login');
-  }
-});
-
-// Case details route
-app.get("/investigator/cases/:id", async (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    try {
-      const case_ = await Case.findOne({
-        _id: req.params.id,
-        assignedTo: req.session.userId
-      });
-      if (!case_) {
-        return res.status(404).send("Case not found");
-      }
-      res.render("investigator/case-details", { case_ });
-    } catch (error) {
-      console.error(error);
-      res.status(500).send("Error fetching case details");
-    }
-  } else {
-    res.redirect('/login');
-  }
-});
-
-// Document download route
-app.get("/investigator/cases/:caseId/documents/:docId", async (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    try {
-      const case_ = await Case.findOne({
-        _id: req.params.caseId,
-        assignedTo: req.session.userId
-      });
-      
-      if (!case_) {
-        return res.status(404).send("Case not found");
-      }
-
-      const document = case_.documents.id(req.params.docId);
-      if (!document) {
-        return res.status(404).send("Document not found");
-      }
-
-      res.set('Content-Type', document.contentType);
-      res.set('Content-Disposition', `attachment; filename="${document.name}"`);
-      res.send(document.data);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send("Error downloading document");
-    }
-  } else {
-    res.redirect('/login');
-  }
-});
-
-// Add case download route
-app.get("/investigator/cases/:id/download", async (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    try {
-      const case_ = await Case.findOne({
-        _id: req.params.id,
-        assignedTo: req.session.userId
-      });
-
-      if (!case_) {
-        return res.status(404).send("Case not found");
-      }
-
-      // Set the response headers for ZIP download
-      res.writeHead(200, {
-        'Content-Type': 'application/zip',
-        'Content-Disposition': `attachment; filename=Case-${case_.caseNumber}.zip`
-      });
-
-      // Create ZIP archive
-      const archive = archiver('zip', {
-        zlib: { level: 9 } // Maximum compression
-      });
-
-      // Pipe the archive to the response
-      archive.pipe(res);
-
-      // Add case details as a text file
-      const caseDetails = `Case Number: ${case_.caseNumber}
-Title: ${case_.title}
-Description: ${case_.description}
-Priority: ${case_.priority}
-Status: ${case_.status}
-Created At: ${case_.createdAt}
-Last Updated: ${case_.updatedAt}
-
-Updates:
-${case_.updates ? case_.updates.map(update => 
-  `[${new Date(update.timestamp).toLocaleString()}] ${update.text}`
-).join('\n') : 'No updates'}
-`;
-
-      archive.append(caseDetails, { name: 'case-details.txt' });
-
-      // Add all documents
-      if (case_.documents && case_.documents.length > 0) {
-        case_.documents.forEach(doc => {
-          archive.append(doc.data, { 
-            name: `documents/${doc.name}`,
-            date: doc.uploadedAt || new Date()
-          });
-        });
-      }
-
-      // Finalize the archive
-      await archive.finalize();
-
-    } catch (error) {
-      console.error('Case download error:', error);
-      res.status(500).send("Error downloading case");
-    }
-  } else {
-    res.redirect('/login');
-  }
-});
-
-// Update case status
-app.post("/investigator/cases/:id/status", async (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    try {
-      await Case.findOneAndUpdate(
-        { _id: req.params.id, assignedTo: req.session.userId },
-        { status: req.body.status }
-      );
-      res.redirect(`/investigator/cases/${req.params.id}`);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send("Error updating case status");
-    }
-  } else {
-    res.redirect('/login');
-  }
-});
-
-// Add case update
-app.post("/investigator/cases/:id/update", async (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    try {
-      await Case.findOneAndUpdate(
-        { _id: req.params.id, assignedTo: req.session.userId },
-        { 
-          $push: { 
-            updates: {
-              text: req.body.updateText,
-              timestamp: new Date(),
-              updatedBy: req.session.userId
-            }
-          }
-        }
-      );
-      res.redirect(`/investigator/cases/${req.params.id}`);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send("Error adding case update");
-    }
-  } else {
-    res.redirect('/login');
-  }
-});
-
-// Upload additional documents
-app.post("/investigator/cases/:id/documents", uploadDocuments.array('documents', 5), async (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    try {
-      const documents = req.files ? req.files.map(file => ({
-        name: file.originalname,
-        data: file.buffer,
-        contentType: file.mimetype,
-        uploadedAt: new Date()
-      })) : [];
-
-      await Case.findOneAndUpdate(
-        { _id: req.params.id, assignedTo: req.session.userId },
-        { $push: { documents: { $each: documents } } }
-      );
-      res.redirect(`/investigator/cases/${req.params.id}`);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send("Error uploading documents");
-    }
-  } else {
-    res.redirect('/login');
-  }
-});
-
-// Delete document
-app.post("/investigator/cases/:caseId/documents/:docId/delete", async (req, res) => {
-  if (req.session.userId && req.session.userRole === 'investigator') {
-    try {
-      await Case.findOneAndUpdate(
-        { _id: req.params.caseId, assignedTo: req.session.userId },
-        { $pull: { documents: { _id: req.params.docId } } }
-      );
-      res.redirect(`/investigator/cases/${req.params.caseId}`);
-    } catch (error) {
-      console.error(error);
-      res.status(500).send("Error deleting document");
-    }
-  } else {
-    res.redirect('/login');
-  }
-});
-
-// Judiciary dashboard route
-app.get("/judiciary/dashboard", async (req, res) => {
+app.get("/judiciary/dashboard", roleCheck(['judiciary']), async (req, res) => {
   if (req.session.userId && req.session.userRole === 'judiciary') {
     try {
       const user = await User.findById(req.session.userId);
       
-      // Build query based on jurisdiction level
       let query = {};
       if (user.jurisdictionLevel === 'district') {
         query = { 'jurisdiction.district': user.jurisdiction.district };
@@ -898,45 +608,22 @@ app.get("/judiciary/dashboard", async (req, res) => {
       const activeCases = await Case.countDocuments({ ...query, status: { $ne: 'closed' } });
       const closedCases = await Case.countDocuments({ ...query, status: 'closed' });
 
-      // Cases by Status
       const casesByStatus = await Case.aggregate([
-        {
-          $match: query
-        },
-        {
-          $group: {
-            _id: '$status',
-            count: { $sum: 1 }
-          }
-        }
+        { $match: query },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
       ]);
 
-      // Cases by Priority
       const casesByPriority = await Case.aggregate([
-        {
-          $match: query
-        },
-        {
-          $group: {
-            _id: '$priority',
-            count: { $sum: 1 }
-          }
-        }
+        { $match: query },
+        { $group: { _id: '$priority', count: { $sum: 1 } } }
       ]);
 
-      // Cases Timeline (last 6 months)
       const sixMonthsAgo = new Date();
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
       
       const casesTimeline = await Case.aggregate([
-        {
-          $match: {
-            ...query,
-            createdAt: { $gte: sixMonthsAgo }
-          }
-        },
-        {
-          $group: {
+        { $match: { ...query, createdAt: { $gte: sixMonthsAgo } } },
+        { $group: {
             _id: {
               month: { $month: '$createdAt' },
               year: { $year: '$createdAt' }
@@ -976,13 +663,11 @@ app.get("/judiciary/dashboard", async (req, res) => {
   }
 });
 
-// Judiciary cases route
 app.get("/judiciary/cases", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'judiciary') {
     try {
       const user = await User.findById(req.session.userId);
       
-      // Build query based on jurisdiction level
       let query = {};
       if (user.jurisdictionLevel === 'district') {
         query = { 'jurisdiction.district': user.jurisdiction.district };
@@ -1001,7 +686,6 @@ app.get("/judiciary/cases", async (req, res) => {
   }
 });
 
-// Case details route for judiciary
 app.get("/judiciary/cases/:id", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'judiciary') {
     try {
@@ -1012,7 +696,6 @@ app.get("/judiciary/cases/:id", async (req, res) => {
         return res.status(404).send("Case not found");
       }
 
-      // Check jurisdiction access
       if (user.jurisdictionLevel === 'district' && 
           case_.jurisdiction.district !== user.jurisdiction.district) {
         return res.status(403).send("Access denied");
@@ -1032,7 +715,81 @@ app.get("/judiciary/cases/:id", async (req, res) => {
   }
 });
 
-// Port opening
+// Import blockchain service
+const { createPolicyOnBlockchain } = require('./routes/admin.policy.routes');
+
+// Add policy management routes for admin
+app.get("/admin/policies", isAdmin, async (req, res) => {
+  try {
+    const policies = await Policy.find({})
+      .populate('createdBy', 'userName')
+      .sort({ createdAt: -1 });
+    res.render("admin/policies", { policies, error: null });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error fetching policies");
+  }
+});
+
+app.post("/admin/policies/add", isAdmin, async (req, res) => {
+  try {
+    const { name, description, categories, rules } = req.body;
+    const policyId = 'policy-' + Date.now();
+
+    // Create policy in MongoDB
+    const policy = new Policy({
+      policyId,
+      name,
+      description,
+      categories: JSON.parse(categories),
+      rules: JSON.parse(rules),
+      createdBy: req.session.userId
+    });
+
+    await policy.save();
+    
+    // Create policy on blockchain
+    try {
+      await createPolicyOnBlockchain(
+        policyId,
+        categories, // Already in JSON string format
+        rules,     // Already in JSON string format
+        req.session.orgMspId
+      );
+    } catch (blockchainError) {
+      // If blockchain fails, delete from MongoDB and throw error
+      await Policy.findByIdAndDelete(policy._id);
+      throw new Error(`Blockchain Error: ${blockchainError.message}`);
+    }
+
+    res.redirect('/admin/policies');
+  } catch (error) {
+    console.error('Policy creation error:', error);
+    const policies = await Policy.find({});
+    res.render("admin/policies", {
+      error: "Error creating policy: " + error.message,
+      policies
+    });
+  }
+});
+
+// Update the investigator case routes to include policy
+app.get("/investigator/cases/new", roleCheck(['investigator']), async (req, res) => {
+  try {
+    const policies = await Policy.find({}).sort({ name: 1 });
+    res.render("investigator/create-case", { 
+      error: null,
+      policies: policies
+    });
+  } catch (error) {
+    console.error(error);
+    res.render("investigator/create-case", { 
+      error: "Error loading policies",
+      policies: []
+    });
+  }
+});
+
 app.listen(3001, function() {
-    console.log("Server started on port 3001");
+  console.log("Server started on port 3001");
 });

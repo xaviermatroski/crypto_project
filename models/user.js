@@ -91,15 +91,16 @@ const UserSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  approvedAt: {
+    type: Date
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
   jurisdiction: {
     district: String,
-    state: String,
-    policeStation: String,
-    badgeNumber: {
-      type: String,
-      unique: true,
-      sparse: true
-    }
+    state: String
   }
 }, { timestamps: true });
 

@@ -1,5 +1,24 @@
 const mongoose = require('mongoose');
 
+const documentSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
+  },
+  contentType: {
+    type: String,
+    required: true
+  },
+  recordId: {
+    type: String,
+    required: true
+  },
+  uploadedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
 const CaseSchema = new mongoose.Schema({
   caseNumber: {
     type: String,
@@ -26,15 +45,7 @@ const CaseSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  documents: [{
-    name: String,
-    data: Buffer,
-    contentType: String,
-    uploadedAt: {
-      type: Date,
-      default: Date.now
-    }
-  }],
+  documents: [documentSchema],
   createdAt: {
     type: Date,
     default: Date.now
@@ -50,7 +61,11 @@ const CaseSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User'
     }
-  }]
+  }],
+  jurisdiction: {
+    state: String,
+    district: String
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Case', CaseSchema);
