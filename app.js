@@ -23,12 +23,31 @@ app.use(express.json())
 const mongoose = require('mongoose');
 
 // Database connection
-mongoose.connect('mongodb://127.0.0.1:27017/criminaldb', {
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 10000,
+  dbName: process.env.MONGODB_DB_NAME
 })
-.then(() => console.log("Connected to MongoDB locally"))
-.catch(err => console.error("MongoDB connection error:", err));
+.then(() => console.log("Connected to MongoDB Atlas"))
+.catch(err => {
+  console.error("MongoDB connection error:", err);
+  process.exit(1);
+});
+
+// Handle MongoDB connection events
+mongoose.connection.on('connected', () => {
+  console.log('MongoDB connection established');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+});
+
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB connection disconnected');
+});
 
 // Import models
 const User = require('./models/user');
@@ -64,7 +83,7 @@ createAdmin();
 
 // Session middleware
 app.use(session({
-  secret: 'your-secret-key',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false } // set to true in production with HTTPS
