@@ -1,6 +1,4 @@
-
-
-<div class="container mt-4">
+<div class="container mt-4"></div>
     <h2>Access Policies Management</h2>
     
     <% if (error) { %>
@@ -151,32 +149,47 @@ document.getElementById('policyForm').onsubmit = function(e) {
     
     // Gather categories
     const categories = Array.from(document.querySelectorAll('.category-item input'))
-        .map(input => input.value)
-        .filter(value => value.trim() !== '');
+        .map(input => input.value.trim())
+        .filter(value => value !== '');
     
-    // Gather rules
+    // Create rules in the correct format
     const rules = Array.from(document.querySelectorAll('.rule-item')).map(item => {
         const selects = item.querySelectorAll('select');
+        const role = selects[0].value;
+        
+        // Map roles to corresponding MSP IDs
+        let orgMspId;
+        switch(role) {
+            case 'investigator':
+                orgMspId = 'Org1MSP';
+                break;
+            case 'forensics_officer':
+                orgMspId = 'Org2MSP';
+                break;
+            default:
+                orgMspId = 'Org1MSP';
+        }
+
         return {
-            role: selects[0].value,
-            permission: selects[1].value
+            allow: {
+                org: orgMspId
+            }
         };
     });
 
-    // Add hidden fields with JSON data
-    const categoriesInput = document.createElement('input');
-    categoriesInput.type = 'hidden';
-    categoriesInput.name = 'categories';
-    categoriesInput.value = JSON.stringify(categories);
+    // Add hidden fields with JSON data in correct format
+    const policyData = {
+        policyId: 'policy-' + Date.now(),
+        categories: categories,
+        rules: rules
+    };
     
-    const rulesInput = document.createElement('input');
-    rulesInput.type = 'hidden';
-    rulesInput.name = 'rules';
-    rulesInput.value = JSON.stringify(rules);
+    const policyInput = document.createElement('input');
+    policyInput.type = 'hidden';
+    policyInput.name = 'policyData';
+    policyInput.value = JSON.stringify(policyData);
     
-    this.appendChild(categoriesInput);
-    this.appendChild(rulesInput);
-    
+    this.appendChild(policyInput);
     this.submit();
 };
 

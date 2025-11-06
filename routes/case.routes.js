@@ -67,92 +67,77 @@ router.get("/investigator/cases/new", async (req, res) => {
 
 // POST new case (NOW USES A SELECTED POLICY)
 router.post("/investigator/cases/new", uploadDocuments.array('documents', 5), async (req, res) => {
-  
-  // Helper function to re-render the form with an error
-  const renderError = async (errorMessage) => {
-    try {
-      const policies = await Policy.find({}).sort({ name: 1 });
-      res.render("investigator/create-case", { 
-        error: errorMessage,
-        policies: policies
-      });
-    } catch (err) {
-      res.render("investigator/create-case", { 
-        error: errorMessage,
-        policies: [] 
-      });
-    }
-  };
-  
   try {
     const user = await User.findById(req.session.userId);
     const caseNumber = 'CASE-' + Date.now();
     const orgMspId = req.session.orgMspId;
     
-    // Get the selected policyId from the form's dropdown
+    // Get the selected policyId and validate
     const { title, description, priority, policyId } = req.body;
-
-    // Validate that a policy was selected
-    if (!policyId) {
-      return renderError("You must select an access policy for this case.");
-    }
     
-    // We no longer create a policy here. We just use the one selected.
+    if (!policyId) {
+      const policies = await Policy.find({}).sort({ name: 1 });
+      return res.render("investigator/create-case", { 
+        error: "Please select an access policy",
+        policies
+      });
+    }
 
-    // Create the case in Mongo, saving the selected policyId
+    // Verify policy exists
+    const selectedPolicy = await Policy.findById(policyId);
+    if (!selectedPolicy) {
+      const policies = await Policy.find({}).sort({ name: 1 });
+      return res.render("investigator/create-case", { 
+        error: "Selected policy not found",
+        policies
+      });
+    }
+
+    // Create case with policy reference
     const newCase = new Case({
       caseNumber,
-      title: title,
-      description: description,
-      priority: priority,
+      title,
+      description,
+      priority,
       assignedTo: req.session.userId,
       jurisdiction: user.jurisdiction,
-      policyId: policyId, // Save the selected policyId
+      policyId: selectedPolicy._id,
       documents: []
     });
-    await newCase.save();
-    
-    // Upload documents using the selected policyId
-    const documentLinks = [];
-    const uploadErrors = [];
 
-    if (req.files) {
-      for (const file of req.files) {
-        try {
-          const recordId = await uploadDocumentToBlockchain(
-            file,
-            newCase._id.toString(),
-            orgMspId,
-            'Evidence', // You can make this dynamic if needed
-            policyId    // Use the selected, valid policyId
-          );
-          
-          documentLinks.push({
-            name: file.originalname,
-            contentType: file.mimetype,
-            recordId: recordId
-          });
-        } catch (err) {
-          uploadErrors.push(err.message);
-        }
-      }
-    }
-
-    // Save the document links to the case
-    newCase.documents = documentLinks;
     await newCase.save();
 
-    if (uploadErrors.length > 0) {
-      // If some files failed, we don't roll back the case creation.
-      // We just show an error. The user can add files later.
-      return renderError("Case created, but some files failed to upload: " + uploadErrors.join(', '));
+    // Upload documents with the selected policy
+    if (req.files && req.files.length > 0) {
+      const documentPromises = req.files.map(async file => {
+        const recordId = await uploadDocumentToBlockchain(
+          file,
+          newCase._id.toString(),
+          orgMspId,
+          'Evidence',
+          selectedPolicy.policyId // Use the policy's blockchain ID
+        );
+
+        return {
+          name: file.originalname,
+          contentType: file.mimetype,
+          recordId: recordId
+        };
+      });
+
+      const documents = await Promise.all(documentPromises);
+      newCase.documents = documents;
+      await newCase.save();
     }
 
     res.redirect('/investigator/cases');
-    
   } catch (error) {
     console.error('Case creation error:', error);
-    return renderError("Error creating case. " + (error.message || "Please try again."));
+    const policies = await Policy.find({}).sort({ name: 1 });
+    res.render("investigator/create-case", { 
+      error: "Error creating case: " + (error.message || "Please try again."),
+      policies
+    });
   }
 });
 

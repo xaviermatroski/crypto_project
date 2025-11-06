@@ -26,7 +26,11 @@
         <h1>Welcome, <%= user.userName %></h1>
         <p class="jurisdiction-info">
             <i class="fas fa-map-marker-alt"></i>
-            Level: <%= user.jurisdictionLevel.charAt(0).toUpperCase() + user.jurisdictionLevel.slice(1) %> Court
+            <% if (user.jurisdictionLevel) { %>
+                Level: <%= user.jurisdictionLevel.charAt(0).toUpperCase() + user.jurisdictionLevel.slice(1) %> Court
+            <% } else { %>
+                Level: Not Assigned
+            <% } %>
             <% if (user.jurisdiction) { %>
                 - <%= user.jurisdiction.district %>, <%= user.jurisdiction.state %>
             <% } %>

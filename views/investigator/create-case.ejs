@@ -51,12 +51,22 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="status">Initial Status</label>
-                        <select id="status" name="status" required>
-                            <option value="open">Open</option>
-                            <option value="pending">Pending</option>
+                        <label for="policyId">Access Policy</label>
+                        <select id="policyId" name="policyId" required>
+                            <option value="">Select Policy</option>
+                            <% policies.forEach(policy => { %>
+                                <option value="<%= policy._id %>"><%= policy.name %></option>
+                            <% }); %>
                         </select>
                     </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Initial Status</label>
+                    <select id="status" name="status" required>
+                        <option value="open">Open</option>
+                        <option value="pending">Pending</option>
+                    </select>
                 </div>
 
                 <div class="form-group">

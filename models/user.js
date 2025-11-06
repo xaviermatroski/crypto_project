@@ -54,8 +54,8 @@ const UserSchema = new mongoose.Schema({
   },
   jurisdictionLevel: {
     type: String,
-    enum: ['district', 'state', 'national', null],
-    default: null
+    enum: ['district', 'state', 'national'],
+    default: 'district'
   },
   isBlocked: {
     type: Boolean,

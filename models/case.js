@@ -65,6 +65,11 @@ const CaseSchema = new mongoose.Schema({
   jurisdiction: {
     state: String,
     district: String
+  },
+  policyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Policy',
+    required: true
   }
 }, { timestamps: true });
 
