@@ -49,8 +49,13 @@ const UserSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['investigator', 'admin', 'forensics_officer'],
+    enum: ['investigator', 'admin', 'forensics_officer', 'judiciary'],
     default: 'user'
+  },
+  jurisdictionLevel: {
+    type: String,
+    enum: ['district', 'state', 'national', null],
+    default: null
   },
   isBlocked: {
     type: Boolean,

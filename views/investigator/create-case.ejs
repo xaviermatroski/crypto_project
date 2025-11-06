@@ -9,40 +9,68 @@
 </head>
 <body>
     <nav class="navbar">
-        <!-- ...existing navigation... -->
+        <div class="nav-brand">
+            <i class="fas fa-shield-alt"></i>
+            <span>CDMS Investigator</span>
+        </div>
+        <div class="nav-links">
+            <a href="/investigator/dashboard">Dashboard</a>
+            <a href="/investigator/cases" class="active">Cases</a>
+            <a href="/investigator/profile">Profile</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
     </nav>
 
-    <div class="create-case-container">
-        <div class="create-case-box">
-            <h2>Create New Case</h2>
+    <div class="container">
+        <div class="create-case-container">
+            <h1>Create New Case</h1>
             <% if (error) { %>
                 <div class="error-message"><%= error %></div>
             <% } %>
-            <form action="/investigator/cases/new" method="POST" enctype="multipart/form-data">
+            
+            <form action="/investigator/cases/new" method="POST" enctype="multipart/form-data" class="case-form">
                 <div class="form-group">
                     <label for="title">Case Title</label>
                     <input type="text" id="title" name="title" required>
                 </div>
+
                 <div class="form-group">
                     <label for="description">Case Description</label>
-                    <textarea id="description" name="description" rows="4" required></textarea>
+                    <textarea id="description" name="description" rows="5" required></textarea>
                 </div>
+
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="priority">Priority</label>
+                        <label for="priority">Priority Level</label>
                         <select id="priority" name="priority" required>
+                            <option value="">Select Priority</option>
                             <option value="high">High</option>
-                            <option value="medium" selected>Medium</option>
+                            <option value="medium">Medium</option>
                             <option value="low">Low</option>
                         </select>
                     </div>
+
+                    <div class="form-group">
+                        <label for="status">Initial Status</label>
+                        <select id="status" name="status" required>
+                            <option value="open">Open</option>
+                            <option value="pending">Pending</option>
+                        </select>
+                    </div>
                 </div>
+
                 <div class="form-group">
                     <label for="documents">Case Documents</label>
-                    <input type="file" id="documents" name="documents" multiple>
-                    <small>Allowed files: Images (JPG, PNG, GIF), PDF, DOC, DOCX, TXT, XLS, XLSX (max 5 files, 10MB each)</small>
+                    <div class="file-upload-container">
+                        <input type="file" id="documents" name="documents" multiple>
+                        <p class="file-info">Upload up to 5 files (Images, PDF, DOC, DOCX, TXT, XLS, XLSX)</p>
+                    </div>
                 </div>
-                <button type="submit" class="submit-case-btn">Create Case</button>
+
+                <div class="form-actions">
+                    <button type="submit" class="submit-btn">Create Case</button>
+                    <a href="/investigator/cases" class="cancel-btn">Cancel</a>
+                </div>
             </form>
         </div>
     </div>

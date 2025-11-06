@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Case Records - CDMS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-gavel"></i>
+            <span>CDMS Judiciary</span>
+        </div>
+        <div class="nav-links">
+            <a href="/judiciary/dashboard">Dashboard</a>
+            <a href="/judiciary/cases" class="active">View Cases</a>
+            <a href="/judiciary/profile">Profile</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="cases-container">
+        <div class="cases-header">
+            <h1>Case Records</h1>
+        </div>
+
+        <div class="cases-controls">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="searchInput" placeholder="Search cases...">
+            </div>
+            <select class="filter-select" id="statusFilter">
+                <option value="">All Status</option>
+                <option value="open">Open</option>
+                <option value="under_investigation">Under Investigation</option>
+                <option value="pending_review">Pending Review</option>
+                <option value="closed">Closed</option>
+            </select>
+        </div>
+
+        <div class="cases-list" id="casesList">
+            <% if (cases && cases.length > 0) { %>
+                <% cases.forEach((case_, index) => { %>
+                    <div class="case-item">
+                        <!-- Similar to investigator cases view but read-only -->
+                        <div class="case-content">
+                            <div class="case-header">
+                                <h3><%= case_.title %></h3>
+                                <span class="case-priority <%= case_.priority %>"><%= case_.priority %></span>
+                            </div>
+                            <p><%= case_.description %></p>
+                            <div class="case-footer">
+                                <div class="case-meta">
+                                    <span class="case-id">#<%= case_.caseNumber %></span>
+                                    <span class="case-status <%= case_.status %>"><%= case_.status.replace('_', ' ') %></span>
+                                    <span class="case-date"><%= new Date(case_.createdAt).toLocaleDateString() %></span>
+                                </div>
+                                <div class="case-actions">
+                                    <a href="/judiciary/cases/<%= case_._id %>" class="action-btn view-btn">
+                                        <i class="fas fa-eye"></i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <% }); %>
+            <% } else { %>
+                <div class="no-cases">
+                    <i class="fas fa-folder-open"></i>
+                    <p>No cases found in your jurisdiction.</p>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <script>
+        // Add filtering functionality similar to investigator cases
+    </script>
+</body>
+</html>

@@ -85,45 +85,65 @@
                                 <p><i class="fas fa-phone"></i> <%= user.phone %></p>
                                 <p><i class="fas fa-user-tag"></i> <%= user.role %></p>
                             </div>
-                            <form action="/admin/users/approve/<%= user._id %>" method="POST" class="jurisdiction-form">
-                                <div class="form-group">
-                                    <label for="jurisdiction">Select Jurisdiction</label>
-                                    <select name="jurisdiction" required class="jurisdiction-select" onchange="updatePoliceStations(this)">
-                                        <option value="">Select Jurisdiction</option>
-                                        <% 
-                                        const groupedJurisdictions = {};
-                                        jurisdictions.forEach(j => {
-                                            if (!groupedJurisdictions[j.state]) {
-                                                groupedJurisdictions[j.state] = {};
-                                            }
-                                            if (!groupedJurisdictions[j.state][j.district]) {
-                                                groupedJurisdictions[j.state][j.district] = [];
-                                            }
-                                            groupedJurisdictions[j.state][j.district].push(j.policeStation);
-                                        });
-                                        %>
-                                        <% Object.keys(groupedJurisdictions).sort().forEach(state => { %>
-                                            <optgroup label="<%= state %>">
-                                                <% Object.keys(groupedJurisdictions[state]).sort().forEach(district => { %>
-                                                    <% groupedJurisdictions[state][district].sort().forEach(station => { %>
-                                                        <option value="<%= JSON.stringify({state, district, policeStation: station}) %>">
-                                                            <%= state %> - <%= district %> - <%= station %>
-                                                        </option>
-                                                    <% }); %>
-                                                <% }); %>
-                                            </optgroup>
-                                        <% }); %>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label for="badgeNumber">Badge Number</label>
-                                    <input type="text" name="jurisdiction[badgeNumber]" required pattern="[A-Za-z0-9]+" title="Alphanumeric characters only">
-                                </div>
+
+                            <% if (user.role === 'judiciary') { %>
+                                <!-- For judiciary users, only show approve/reject buttons -->
                                 <div class="action-buttons">
-                                    <button type="submit" class="approve-btn">Approve User</button>
-                                    <button type="submit" formaction="/admin/users/reject/<%= user._id %>" class="reject-btn">Reject</button>
+                                    <form action="/admin/users/approve/<%= user._id %>" method="POST">
+                                        <button type="submit" class="approve-btn">
+                                            <i class="fas fa-check"></i> Approve
+                                        </button>
+                                    </form>
+                                    <form action="/admin/users/reject/<%= user._id %>" method="POST">
+                                        <button type="submit" class="reject-btn">
+                                            <i class="fas fa-times"></i> Reject
+                                        </button>
+                                    </form>
                                 </div>
-                            </form>
+                            <% } else { %>
+                                <!-- For other roles, show jurisdiction selection -->
+                                <div class="jurisdiction-form">
+                                    <form action="/admin/users/approve/<%= user._id %>" method="POST" class="jurisdiction-form">
+                                        <div class="form-group">
+                                            <label for="jurisdiction">Select Jurisdiction</label>
+                                            <select name="jurisdiction" required class="jurisdiction-select" onchange="updatePoliceStations(this)">
+                                                <option value="">Select Jurisdiction</option>
+                                                <% 
+                                                const groupedJurisdictions = {};
+                                                jurisdictions.forEach(j => {
+                                                    if (!groupedJurisdictions[j.state]) {
+                                                        groupedJurisdictions[j.state] = {};
+                                                    }
+                                                    if (!groupedJurisdictions[j.state][j.district]) {
+                                                        groupedJurisdictions[j.state][j.district] = [];
+                                                    }
+                                                    groupedJurisdictions[j.state][j.district].push(j.policeStation);
+                                                });
+                                                %>
+                                                <% Object.keys(groupedJurisdictions).sort().forEach(state => { %>
+                                                    <optgroup label="<%= state %>">
+                                                        <% Object.keys(groupedJurisdictions[state]).sort().forEach(district => { %>
+                                                            <% groupedJurisdictions[state][district].sort().forEach(station => { %>
+                                                                <option value="<%= JSON.stringify({state, district, policeStation: station}) %>">
+                                                                    <%= state %> - <%= district %> - <%= station %>
+                                                                </option>
+                                                            <% }); %>
+                                                        <% }); %>
+                                                    </optgroup>
+                                                <% }); %>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="badgeNumber">Badge Number</label>
+                                            <input type="text" name="jurisdiction[badgeNumber]" required pattern="[A-Za-z0-9]+" title="Alphanumeric characters only">
+                                        </div>
+                                        <div class="action-buttons">
+                                            <button type="submit" class="approve-btn">Approve User</button>
+                                            <button type="submit" formaction="/admin/users/reject/<%= user._id %>" class="reject-btn">Reject</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            <% } %>
                         </div>
                     <% }); %>
                 </div>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Judiciary Dashboard - CDMS</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <i class="fas fa-gavel"></i>
+            <span>CDMS Judiciary</span>
+        </div>
+        <div class="nav-links">
+            <a href="/judiciary/dashboard" class="active">Dashboard</a>
+            <a href="/judiciary/cases">View Cases</a>
+            <a href="/judiciary/profile">Profile</a>
+            <a href="/logout" class="logout-btn">Logout</a>
+        </div>
+    </nav>
+
+    <div class="dashboard-container">
+        <h1>Welcome, <%= user.userName %></h1>
+        <p class="jurisdiction-info">
+            <i class="fas fa-map-marker-alt"></i>
+            Level: <%= user.jurisdictionLevel.charAt(0).toUpperCase() + user.jurisdictionLevel.slice(1) %> Court
+            <% if (user.jurisdiction) { %>
+                - <%= user.jurisdiction.district %>, <%= user.jurisdiction.state %>
+            <% } %>
+        </p>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <i class="fas fa-folder-open"></i>
+                <h3>Total Cases</h3>
+                <p><%= stats.totalCases %></p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-clock"></i>
+                <h3>Active Cases</h3>
+                <p><%= stats.activeCases %></p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-check-circle"></i>
+                <h3>Closed Cases</h3>
+                <p><%= stats.closedCases %></p>
+            </div>
+        </div>
+
+        <div class="charts-section">
+            <div class="chart-row">
+                <div class="chart-card">
+                    <h3>Cases by Status</h3>
+                    <div style="height: 200px;">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Cases by Priority</h3>
+                    <div style="height: 200px;">
+                        <canvas id="priorityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="chart-card full-width">
+                <h3>Cases Timeline</h3>
+                <div style="height: 150px;">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Status Chart
+        new Chart(document.getElementById('statusChart'), {
+            type: 'pie',
+            data: {
+                labels: <%- JSON.stringify(chartData.status.labels) %>,
+                datasets: [{
+                    data: <%- JSON.stringify(chartData.status.data) %>,
+                    backgroundColor: ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e']
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Priority Chart
+        new Chart(document.getElementById('priorityChart'), {
+            type: 'doughnut',
+            data: {
+                labels: <%- JSON.stringify(chartData.priority.labels) %>,
+                datasets: [{
+                    data: <%- JSON.stringify(chartData.priority.data) %>,
+                    backgroundColor: ['#e74a3b', '#f6c23e', '#1cc88a']
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Timeline Chart
+        new Chart(document.getElementById('timelineChart'), {
+            type: 'line',
+            data: {
+                labels: <%- JSON.stringify(chartData.timeline.labels) %>,
+                datasets: [{
+                    label: 'Cases',
+                    data: <%- JSON.stringify(chartData.timeline.data) %>,
+                    borderColor: '#4e73df',
+                    tension: 0.1,
+                    fill: true,
+                    backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

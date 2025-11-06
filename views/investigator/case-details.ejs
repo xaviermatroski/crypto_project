@@ -70,6 +70,7 @@
 
             <div class="case-documents">
                 <h2>Case Documents</h2>
+
                 <form action="/investigator/cases/<%= case_._id %>/documents" method="POST" enctype="multipart/form-data" class="document-upload">
                     <div class="upload-area">
                         <input type="file" name="documents" multiple id="documents">
@@ -85,8 +86,7 @@
                                 <i class="fas fa-file"></i>
                                 <span><%= doc.name %></span>
                                 <div class="document-actions">
-                                    <a href="/investigator/cases/<%= case_._id %>/documents/<%= doc._id %>" 
-                                       class="download-btn" title="Download">
+                                    <a href="/investigator/cases/<%= case_._id %>/documents/<%= doc._id %>" class="doc-download-btn">
                                         <i class="fas fa-download"></i>
                                     </a>
                                     <form action="/investigator/cases/<%= case_._id %>/documents/<%= doc._id %>/delete" 

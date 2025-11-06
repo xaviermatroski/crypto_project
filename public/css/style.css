@@ -570,6 +570,16 @@ select {
     color: var(--secondary-color);
 }
 
+.doc-download-btn {
+    color: var(--secondary-color);
+    padding: 0.3rem;
+    cursor: pointer;
+}
+
+.doc-download-btn:hover {
+    color: var(--primary-color);
+}
+
 /* Filter and Search Styles */
 .cases-controls {
     max-width: 900px;
@@ -898,4 +908,123 @@ select {
     top: 1rem;
     font-size: 1.5rem;
     cursor: pointer;
+}
+
+/* Case Creation Styles */
+.create-case-container {
+    max-width: 800px;
+    margin: 2rem auto;
+    background: white;
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.create-case-container h1 {
+    color: var(--primary-color);
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.case-form .form-group {
+    margin-bottom: 1.5rem;
+}
+
+.case-form textarea {
+    width: 100%;
+    padding: 0.8rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 1rem;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.file-upload-container {
+    border: 2px dashed #ddd;
+    padding: 1.5rem;
+    border-radius: 4px;
+    text-align: center;
+    background-color: var(--light-bg);
+}
+
+.file-upload-container input[type="file"] {
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.file-info {
+    color: #666;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.submit-btn, .cancel-btn {
+    padding: 0.8rem 2rem;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    text-align: center;
+    flex: 1;
+}
+
+.submit-btn {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+}
+
+.cancel-btn {
+    background-color: #dc3545;
+    color: white;
+    text-decoration: none;
+    border: none;
+}
+
+.submit-btn:hover {
+    background-color: #006c5f;
+}
+
+.cancel-btn:hover {
+    background-color: #c82333;
+}
+
+.case-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.5rem;
+    border-radius: 4px;
+    text-decoration: none;
+    color: white;
+    transition: all 0.3s ease;
+}
+
+.view-btn {
+    background-color: var(--primary-color);
+}
+
+.view-btn:hover {
+    background-color: var(--secondary-color);
+}
+
+.download-btn {
+    background-color: var(--accent-color);
+}
+
+.download-btn:hover {
+    background-color: #006c5f;
+    transform: translateY(-1px);
 }

@@ -7,6 +7,8 @@ const multer = require("multer");
 const path = require("path");
 const bcrypt = require("bcrypt"); // Add bcrypt for password hashing
 const sharp = require('sharp'); // Add sharp require at the top with other requires
+const archiver = require('archiver');
+const fs = require('fs');
 require("dotenv").config();
 
 const app = express();
@@ -153,6 +155,9 @@ app.post("/login", async (req, res) => {
       case 'forensics_officer':
         res.redirect('/forensics/dashboard');
         break;
+      case 'judiciary':
+        res.redirect('/judiciary/dashboard');
+        break;
       default:
         res.redirect('/');
     }
@@ -170,7 +175,7 @@ app.get("/admin/dashboard", async (req, res) => {
       const totalCases = await Case.countDocuments();
       const activeCases = await Case.countDocuments({ status: { $ne: 'closed' } });
 
-      // Cases by Jurisdiction - Improved aggregation
+      // Simplified Cases by Jurisdiction aggregation
       const casesByJurisdiction = await Case.aggregate([
         {
           $lookup: {
@@ -183,29 +188,19 @@ app.get("/admin/dashboard", async (req, res) => {
         { $unwind: '$assignedUser' },
         {
           $match: {
-            'assignedUser.role': { $ne: 'admin' }  // Exclude admin users
+            'assignedUser.role': { $ne: 'admin' }
           }
         },
         {
           $group: {
-            _id: {
-              district: '$assignedUser.jurisdiction.district',
-              state: '$assignedUser.jurisdiction.state'
-            },
+            _id: '$assignedUser.jurisdiction.district',
             count: { $sum: 1 }
           }
         },
         {
           $project: {
             _id: 0,
-            jurisdiction: { 
-              $concat: [
-                '$_id.district', 
-                ' (', 
-                '$_id.state', 
-                ')'
-              ] 
-            },
+            jurisdiction: { $ifNull: ['$_id', 'Unassigned'] },
             count: 1
           }
         },
@@ -227,12 +222,12 @@ app.get("/admin/dashboard", async (req, res) => {
         },
         {
           $project: {
-            _id: 0,
             role: {
               $switch: {
                 branches: [
                   { case: { $eq: ['$_id', 'investigator'] }, then: 'Investigators' },
-                  { case: { $eq: ['$_id', 'forensics_officer'] }, then: 'Forensics Officers' }
+                  { case: { $eq: ['$_id', 'forensics_officer'] }, then: 'Forensics Officers' },
+                  { case: { $eq: ['$_id', 'judiciary'] }, then: 'Judiciary' }
                 ],
                 default: '$_id'
               }
@@ -467,10 +462,17 @@ app.post("/admin/jurisdictions/add", async (req, res) => {
 app.post("/admin/users/approve/:id", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'admin') {
     try {
-      await User.findByIdAndUpdate(req.params.id, {
-        isApproved: true,
-        jurisdiction: req.body.jurisdiction
-      });
+      const user = await User.findById(req.params.id);
+      const updateData = {
+        isApproved: true
+      };
+
+      // Only add jurisdiction for non-judiciary users
+      if (user.role !== 'judiciary') {
+        updateData.jurisdiction = req.body.jurisdiction;
+      }
+
+      await User.findByIdAndUpdate(req.params.id, updateData);
       res.redirect('/admin/users');
     } catch (error) {
       console.error(error);
@@ -706,6 +708,72 @@ app.get("/investigator/cases/:caseId/documents/:docId", async (req, res) => {
   }
 });
 
+// Add case download route
+app.get("/investigator/cases/:id/download", async (req, res) => {
+  if (req.session.userId && req.session.userRole === 'investigator') {
+    try {
+      const case_ = await Case.findOne({
+        _id: req.params.id,
+        assignedTo: req.session.userId
+      });
+
+      if (!case_) {
+        return res.status(404).send("Case not found");
+      }
+
+      // Set the response headers for ZIP download
+      res.writeHead(200, {
+        'Content-Type': 'application/zip',
+        'Content-Disposition': `attachment; filename=Case-${case_.caseNumber}.zip`
+      });
+
+      // Create ZIP archive
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Maximum compression
+      });
+
+      // Pipe the archive to the response
+      archive.pipe(res);
+
+      // Add case details as a text file
+      const caseDetails = `Case Number: ${case_.caseNumber}
+Title: ${case_.title}
+Description: ${case_.description}
+Priority: ${case_.priority}
+Status: ${case_.status}
+Created At: ${case_.createdAt}
+Last Updated: ${case_.updatedAt}
+
+Updates:
+${case_.updates ? case_.updates.map(update => 
+  `[${new Date(update.timestamp).toLocaleString()}] ${update.text}`
+).join('\n') : 'No updates'}
+`;
+
+      archive.append(caseDetails, { name: 'case-details.txt' });
+
+      // Add all documents
+      if (case_.documents && case_.documents.length > 0) {
+        case_.documents.forEach(doc => {
+          archive.append(doc.data, { 
+            name: `documents/${doc.name}`,
+            date: doc.uploadedAt || new Date()
+          });
+        });
+      }
+
+      // Finalize the archive
+      await archive.finalize();
+
+    } catch (error) {
+      console.error('Case download error:', error);
+      res.status(500).send("Error downloading case");
+    }
+  } else {
+    res.redirect('/login');
+  }
+});
+
 // Update case status
 app.post("/investigator/cases/:id/status", async (req, res) => {
   if (req.session.userId && req.session.userRole === 'investigator') {
@@ -787,6 +855,158 @@ app.post("/investigator/cases/:caseId/documents/:docId/delete", async (req, res)
     } catch (error) {
       console.error(error);
       res.status(500).send("Error deleting document");
+    }
+  } else {
+    res.redirect('/login');
+  }
+});
+
+// Judiciary dashboard route
+app.get("/judiciary/dashboard", async (req, res) => {
+  if (req.session.userId && req.session.userRole === 'judiciary') {
+    try {
+      const user = await User.findById(req.session.userId);
+      
+      // Build query based on jurisdiction level
+      let query = {};
+      if (user.jurisdictionLevel === 'district') {
+        query = { 'jurisdiction.district': user.jurisdiction.district };
+      } else if (user.jurisdictionLevel === 'state') {
+        query = { 'jurisdiction.state': user.jurisdiction.state };
+      }
+
+      const totalCases = await Case.countDocuments(query);
+      const activeCases = await Case.countDocuments({ ...query, status: { $ne: 'closed' } });
+      const closedCases = await Case.countDocuments({ ...query, status: 'closed' });
+
+      // Cases by Status
+      const casesByStatus = await Case.aggregate([
+        {
+          $match: query
+        },
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      // Cases by Priority
+      const casesByPriority = await Case.aggregate([
+        {
+          $match: query
+        },
+        {
+          $group: {
+            _id: '$priority',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      // Cases Timeline (last 6 months)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      
+      const casesTimeline = await Case.aggregate([
+        {
+          $match: {
+            ...query,
+            createdAt: { $gte: sixMonthsAgo }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              month: { $month: '$createdAt' },
+              year: { $year: '$createdAt' }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { '_id.year': 1, '_id.month': 1 } }
+      ]);
+
+      const chartData = {
+        status: {
+          labels: casesByStatus.map(s => s._id || 'New'),
+          data: casesByStatus.map(s => s.count)
+        },
+        priority: {
+          labels: casesByPriority.map(p => p._id || 'Unspecified'),
+          data: casesByPriority.map(p => p.count)
+        },
+        timeline: {
+          labels: casesTimeline.map(t => `${t._id.month}/${t._id.year}`),
+          data: casesTimeline.map(t => t.count)
+        }
+      };
+
+      res.render("judiciary/dashboard", {
+        user,
+        stats: { totalCases, activeCases, closedCases },
+        chartData
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error fetching dashboard data");
+    }
+  } else {
+    res.redirect('/login');
+  }
+});
+
+// Judiciary cases route
+app.get("/judiciary/cases", async (req, res) => {
+  if (req.session.userId && req.session.userRole === 'judiciary') {
+    try {
+      const user = await User.findById(req.session.userId);
+      
+      // Build query based on jurisdiction level
+      let query = {};
+      if (user.jurisdictionLevel === 'district') {
+        query = { 'jurisdiction.district': user.jurisdiction.district };
+      } else if (user.jurisdictionLevel === 'state') {
+        query = { 'jurisdiction.state': user.jurisdiction.state };
+      }
+
+      const cases = await Case.find(query).sort({ createdAt: -1 });
+      res.render("judiciary/cases", { cases });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error fetching cases");
+    }
+  } else {
+    res.redirect('/login');
+  }
+});
+
+// Case details route for judiciary
+app.get("/judiciary/cases/:id", async (req, res) => {
+  if (req.session.userId && req.session.userRole === 'judiciary') {
+    try {
+      const user = await User.findById(req.session.userId);
+      const case_ = await Case.findById(req.params.id);
+
+      if (!case_) {
+        return res.status(404).send("Case not found");
+      }
+
+      // Check jurisdiction access
+      if (user.jurisdictionLevel === 'district' && 
+          case_.jurisdiction.district !== user.jurisdiction.district) {
+        return res.status(403).send("Access denied");
+      }
+      if (user.jurisdictionLevel === 'state' && 
+          case_.jurisdiction.state !== user.jurisdiction.state) {
+        return res.status(403).send("Access denied");
+      }
+
+      res.render("judiciary/case-details", { case_ });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send("Error fetching case details");
     }
   } else {
     res.redirect('/login');

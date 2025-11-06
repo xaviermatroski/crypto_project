@@ -48,11 +48,25 @@
                 </div>
                 <div class="form-group">
                     <label for="role">Role</label>
-                    <select id="role" name="role" required>
+                    <select name="role" id="role" required onchange="handleRoleChange()">
+                        <option value="">Select Role</option>
                         <option value="investigator">Investigator</option>
                         <option value="forensics_officer">Forensics Officer</option>
+                        <option value="judiciary">Judiciary</option>
                     </select>
                 </div>
+
+                <!-- Add jurisdiction level field for judiciary -->
+                <div class="form-group" id="jurisdictionLevelGroup" style="display: none;">
+                    <label for="jurisdictionLevel">Jurisdiction Level</label>
+                    <select name="jurisdictionLevel" id="jurisdictionLevel">
+                        <option value="">Select Level</option>
+                        <option value="district">District Court</option>
+                        <option value="state">State High Court</option>
+                        <option value="national">Supreme Court</option>
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label for="street">Street</label>
                     <input type="text" id="street" name="address[street]" required>
@@ -75,5 +89,20 @@
             </form>
         </div>
     </div>
+
+    <script>
+    function handleRoleChange() {
+        const role = document.getElementById('role').value;
+        const jurisdictionLevelGroup = document.getElementById('jurisdictionLevelGroup');
+        
+        if (role === 'judiciary') {
+            jurisdictionLevelGroup.style.display = 'block';
+            document.getElementById('jurisdictionLevel').required = true;
+        } else {
+            jurisdictionLevelGroup.style.display = 'none';
+            document.getElementById('jurisdictionLevel').required = false;
+        }
+    }
+    </script>
 </body>
 </html>

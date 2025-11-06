@@ -68,7 +68,14 @@
                                     <span class="case-status <%= case_.status %>"><%= case_.status.replace('_', ' ') %></span>
                                     <span class="case-date"><%= new Date(case_.createdAt).toLocaleDateString() %></span>
                                 </div>
-                                <a href="/investigator/cases/<%= case_._id %>" class="view-case-btn">View Details</a>
+                                <div class="case-actions">
+                                    <a href="/investigator/cases/<%= case_._id %>" class="action-btn view-btn">
+                                        <i class="fas fa-eye"></i> View Details
+                                    </a>
+                                    <a href="/investigator/cases/<%= case_._id %>/download" class="action-btn download-btn">
+                                        <i class="fas fa-download"></i> Download Case
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
